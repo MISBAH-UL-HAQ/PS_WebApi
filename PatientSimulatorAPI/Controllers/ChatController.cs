@@ -1,0 +1,39 @@
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using PatientSimulatorAPI.DTOs;
+using PatientSimulatorAPI.Interfaces;
+using static PatientSimulatorAPI.DTOs.ChatDto;
+namespace PatientSimulatorAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ChatController : ControllerBase
+    {
+        private readonly IChatService _chatService;
+
+        public ChatController(IChatService chatService)
+        {
+            _chatService = chatService;
+        }
+
+        /// <summary>
+        /// Accepts a chat request from the doctor and returns the patient's reply.
+        /// </summary>
+        [HttpPost("doctor")]
+        public async Task<IActionResult> DoctorChat([FromBody] ChatRequestDto request)
+        {
+            try
+            {
+                ChatResponseDto response = await _chatService.ProcessDoctorQuestionAsync(request);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                // In a production app, use structured logging and avoid exposing sensitive exception messages.
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+    }
+}
+    
+
