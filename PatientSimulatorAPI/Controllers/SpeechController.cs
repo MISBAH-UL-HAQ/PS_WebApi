@@ -153,6 +153,22 @@ namespace PatientSimulatorAPI.Controllers
         /// Speech-to-Text (STT) endpoint.
         /// Expects an audio file (WAV) sent as form-data.
         /// </summary>
+        //[HttpPost("stt")]
+        //[Consumes("multipart/form-data")]
+        //public async Task<IActionResult> RecognizeSpeech([FromForm] FileUploadDto fileUpload)
+        //{
+        //    if (fileUpload?.AudioFile == null || fileUpload.AudioFile.Length == 0)
+        //        return BadRequest("No audio file provided.");
+
+        //    using var stream = fileUpload.AudioFile.OpenReadStream();
+        //    // Change this line:
+
+        //    var recognizedText = await _speechService.RecognizeAsync(stream);
+
+        //    // And change the return to use your DTO:
+        //    return Ok(new SpeechRecognitionDto { RecognizedText = recognizedText });
+        //}
+
         [HttpPost("stt")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> RecognizeSpeech([FromForm] FileUploadDto fileUpload)
@@ -161,14 +177,10 @@ namespace PatientSimulatorAPI.Controllers
                 return BadRequest("No audio file provided.");
 
             using var stream = fileUpload.AudioFile.OpenReadStream();
-            // Change this line:
-
             var recognizedText = await _speechService.RecognizeAsync(stream);
 
-            // And change the return to use your DTO:
             return Ok(new SpeechRecognitionDto { RecognizedText = recognizedText });
         }
-
         //private readonly ISpeechService _speechService;
 
         //public SpeechController(ISpeechService speechService)
