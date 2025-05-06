@@ -162,7 +162,7 @@ namespace PatientSimulatorAPI.Controllers
 
             using var stream = fileUpload.AudioFile.OpenReadStream();
             // Change this line:
-        
+
             var recognizedText = await _speechService.RecognizeAsync(stream);
 
             // And change the return to use your DTO:
@@ -187,14 +187,25 @@ namespace PatientSimulatorAPI.Controllers
         //    return Ok(new SpeechRecognitionDto { RecognizedText = text });
         //}
 
-        [HttpPost("tts")]
-        public async Task<IActionResult> Synthesize([FromBody] SpeechSynthesisRequestDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(dto.Text))
-                return BadRequest(new { error = "Text is required for synthesis." });
+        //    [HttpPost("tts")]
+        //    public async Task<IActionResult> Synthesize([FromBody] SpeechSynthesisRequestDto dto)
+        //    {
+        //        if (string.IsNullOrWhiteSpace(dto.Text))
+        //            return BadRequest(new { error = "Text is required for synthesis." });
 
-            var audioBytes = await _speechService.SynthesizeAsync(dto.Text);
-            return File(audioBytes, "audio/wav", "patient.wav");
+        //        var audioBytes = await _speechService.SynthesizeAsync(dto.Text);
+        //        return File(audioBytes, "audio/wav", "patient.wav");
+        //    }
+        //}
+        [HttpPost("tts")]
+        [Produces("audio/wav")]
+        public async Task<IActionResult> SynthesizeSpeech([FromBody] DTOs.TTSRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Text))
+                return BadRequest("Text is required for TTS.");
+
+            var audioData = await _speechService.SynthesizeAsync(request.Text);
+            return File(audioData, "audio/wav");
         }
     }
 }

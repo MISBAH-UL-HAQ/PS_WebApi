@@ -6,5 +6,6 @@ namespace PatientSimulatorAPI.Interfaces
     {
         Task<string> RecognizeAsync(Stream audioStream);
         Task<byte[]> SynthesizeAsync(string text);
+    
     }
 }
