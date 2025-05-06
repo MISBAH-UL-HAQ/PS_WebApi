@@ -93,6 +93,55 @@ namespace PatientSimulatorAPI.Controllers
 
 
 
+
+
+
+
+
+        //        private readonly ISpeechService _speechService;
+
+        //        public SpeechController(ISpeechService speechService)
+        //        {
+        //            _speechService = speechService;
+        //        }
+
+        //        /// <summary>
+        //        /// Speech-to-Text (STT) endpoint.
+        //        /// It expects an audio file (WAV) sent as form-data.
+        //        /// </summary>
+        //        [HttpPost("stt")]
+        //        public async Task<IActionResult> RecognizeSpeech([FromForm] FileUploadDto fileUpload)
+        //        {
+        //            if (fileUpload == null || fileUpload.AudioFile == null || fileUpload.AudioFile.Length == 0)
+        //                return BadRequest("No audio file provided.");
+
+        //            using var stream = fileUpload.AudioFile.OpenReadStream();
+        //            var recognizedText = await _speechService.SpeechToTextAsync(stream);
+        //            return Ok(new { recognizedText });
+        //        }
+
+        //        /// <summary>
+        //        /// Text-to-Speech (TTS) endpoint.
+        //        /// It accepts JSON input containing text to be synthesized.
+        //        /// Returns the synthesized audio as a WAV file.
+        //        /// </summary>
+        //        [HttpPost("tts")]
+        //        public async Task<IActionResult> SynthesizeSpeech([FromBody] DTOs.TTSRequest request)
+        //        {
+        //            if (request == null || string.IsNullOrWhiteSpace(request.Text))
+        //                return BadRequest("Text is required for TTS.");
+
+        //            var speechResult = await _speechService.TextToSpeechAsync(request.Text);
+        //            return File(speechResult.AudioData, "audio/wav", "synthesized.wav");
+        //        }
+        //    }
+        //}
+
+
+
+
+
+
         private readonly ISpeechService _speechService;
 
         public SpeechController(ISpeechService speechService)
@@ -102,32 +151,50 @@ namespace PatientSimulatorAPI.Controllers
 
         /// <summary>
         /// Speech-to-Text (STT) endpoint.
-        /// It expects an audio file (WAV) sent as form-data.
+        /// Expects an audio file (WAV) sent as form-data.
         /// </summary>
         [HttpPost("stt")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> RecognizeSpeech([FromForm] FileUploadDto fileUpload)
         {
-            if (fileUpload == null || fileUpload.AudioFile == null || fileUpload.AudioFile.Length == 0)
+            if (fileUpload?.AudioFile == null || fileUpload.AudioFile.Length == 0)
                 return BadRequest("No audio file provided.");
 
             using var stream = fileUpload.AudioFile.OpenReadStream();
-            var recognizedText = await _speechService.SpeechToTextAsync(stream);
-            return Ok(new { recognizedText });
+            // Change this line:
+        
+            var recognizedText = await _speechService.RecognizeAsync(stream);
+
+            // And change the return to use your DTO:
+            return Ok(new SpeechRecognitionDto { RecognizedText = recognizedText });
         }
 
-        /// <summary>
-        /// Text-to-Speech (TTS) endpoint.
-        /// It accepts JSON input containing text to be synthesized.
-        /// Returns the synthesized audio as a WAV file.
-        /// </summary>
-        [HttpPost("tts")]
-        public async Task<IActionResult> SynthesizeSpeech([FromBody] DTOs.TTSRequest request)
-        {
-            if (request == null || string.IsNullOrWhiteSpace(request.Text))
-                return BadRequest("Text is required for TTS.");
+        //private readonly ISpeechService _speechService;
 
-            var speechResult = await _speechService.TextToSpeechAsync(request.Text);
-            return File(speechResult.AudioData, "audio/wav", "synthesized.wav");
+        //public SpeechController(ISpeechService speechService)
+        //{
+        //    _speechService = speechService;
+        //}
+
+        //[HttpPost("stt")]
+        //public async Task<ActionResult<SpeechRecognitionDto>> Recognize([FromForm] IFormFile audioFile)
+        //{
+        //    if (audioFile == null || audioFile.Length == 0)
+        //        return BadRequest(new { error = "Audio file is required." });
+
+        //    using var stream = audioFile.OpenReadStream();
+        //    var text = await _speechService.RecognizeAsync(stream);
+        //    return Ok(new SpeechRecognitionDto { RecognizedText = text });
+        //}
+
+        [HttpPost("tts")]
+        public async Task<IActionResult> Synthesize([FromBody] SpeechSynthesisRequestDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Text))
+                return BadRequest(new { error = "Text is required for synthesis." });
+
+            var audioBytes = await _speechService.SynthesizeAsync(dto.Text);
+            return File(audioBytes, "audio/wav", "patient.wav");
         }
     }
 }

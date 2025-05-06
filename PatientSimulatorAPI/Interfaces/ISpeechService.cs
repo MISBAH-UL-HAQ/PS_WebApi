@@ -4,7 +4,7 @@ namespace PatientSimulatorAPI.Interfaces
 {
     public interface ISpeechService
     {
-        Task<string> SpeechToTextAsync(Stream audioStream);
-        Task<SpeechResult> TextToSpeechAsync(string text);
+        Task<string> RecognizeAsync(Stream audioStream);
+        Task<byte[]> SynthesizeAsync(string text);
     }
 }

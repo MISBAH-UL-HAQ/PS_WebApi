@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
 using PatientSimulatorAPI.Interfaces;
@@ -75,69 +76,58 @@ using PatientSimulatorAPI.Models;
 //    }
 //}
 
-
 namespace PatientSimulatorAPI.Services
 {
+
     public class AzureSpeechService : ISpeechService
     {
-        private readonly SpeechConfig _config;
+        private readonly SpeechConfig _speechConfig;
 
-        public AzureSpeechService(IOptions<AzureSettings> options)
+        public AzureSpeechService(IConfiguration config)
         {
-            var settings = options.Value;
-            _config = SpeechConfig.FromSubscription(settings.AzureSpeech.ApiKey, settings.AzureSpeech.Region);
-            _config.SpeechRecognitionLanguage = "en-US"; // Adjust as needed
+            var key = config["AzureSettings:AzureSpeech:ApiKey"];
+            var region = config["AzureSettings:AzureSpeech:Region"];
+
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(region))
+                throw new ApplicationException("Azure Speech configuration is missing.");
+
+            _speechConfig = SpeechConfig.FromSubscription(key, region);
         }
 
-        public async Task<string> SpeechToTextAsync(Stream audioStream)
+        public async Task<string> RecognizeAsync(Stream audioStream)
         {
-            // Wrap the incoming stream using BinaryAudioStreamReader.
-            var pullStream = AudioInputStream.CreatePullStream(new BinaryAudioStreamReader(audioStream));
-            using var audioConfig = AudioConfig.FromStreamInput(pullStream);
-            using var recognizer = new SpeechRecognizer(_config, audioConfig);
-            var result = await recognizer.RecognizeOnceAsync();
-
-            if (result.Reason == ResultReason.RecognizedSpeech)
+            var pushStream = AudioInputStream.CreatePushStream();
+            using var binaryReader = new BinaryReader(audioStream);
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = binaryReader.Read(buffer, 0, buffer.Length)) > 0)
             {
-                return result.Text;
-            }
-            else
-            {
-                // If recognition failed, log only the basic reason
-                System.Diagnostics.Debug.WriteLine($"Speech recognition failed. Reason: {result.Reason}");
-                return string.Empty;
-            }
-        }
-
-        public async Task<SpeechResult> TextToSpeechAsync(string text)
-        {
-            using var audioConfig = AudioConfig.FromDefaultSpeakerOutput();
-            using var synthesizer = new SpeechSynthesizer(_config, audioConfig);
-            var result = await synthesizer.SpeakTextAsync(text);
-
-            if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-            {
-                // Get the audio data stream from the synthesis result.
-                using var audioDataStream = AudioDataStream.FromResult(result);
-
-                // Read the synthesized audio data manually.
-                var data = new List<byte>();
-                byte[] buffer = new byte[4096];
-                uint bytesRead = 0;
-                do
+                if (bytesRead > 0)
                 {
-                    // Note: Swap the parameters—first is the uint (buffer size), second is the buffer.
-                    bytesRead = audioDataStream.ReadData((uint)buffer.Length, buffer);
-                    if (bytesRead > 0)
-                    {
-                        data.AddRange(buffer.Take((int)bytesRead));
-                    }
-                } while (bytesRead > 0);
-
-                return new SpeechResult { Text = text, AudioData = data.ToArray() };
+                    var chunk = new byte[bytesRead];
+                    Array.Copy(buffer, chunk, bytesRead);
+                    pushStream.Write(chunk);
+                }
             }
+            pushStream.Close();
 
-            return new SpeechResult { Text = text, AudioData = System.Array.Empty<byte>() };
+            using var audioConfig = AudioConfig.FromStreamInput(pushStream);
+            using var recognizer = new SpeechRecognizer(_speechConfig, audioConfig);
+            var result = await recognizer.RecognizeOnceAsync();
+            if (result.Reason == ResultReason.RecognizedSpeech)
+                return result.Text;
+            else
+                throw new InvalidOperationException($"Speech recognition failed: {result.Reason}");
+        }
+
+        public async Task<byte[]> SynthesizeAsync(string text)
+        {
+            using var synthesizer = new SpeechSynthesizer(_speechConfig, null);
+            var result = await synthesizer.SpeakTextAsync(text);
+            if (result.Reason == ResultReason.SynthesizingAudioCompleted)
+                return result.AudioData;
+            else
+                throw new InvalidOperationException($"TTS synthesis failed: {result.Reason}");
         }
     }
 }

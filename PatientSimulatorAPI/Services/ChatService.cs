@@ -5,7 +5,6 @@ using OpenAI.Chat;
 using PatientSimulatorAPI.DTOs;
 using PatientSimulatorAPI.Interfaces;
 using PatientSimulatorAPI.Models;
-using PatientSimulatorAPI.Repositories;
 using static PatientSimulatorAPI.DTOs.ChatDto;
 
 namespace PatientSimulatorAPI.Services

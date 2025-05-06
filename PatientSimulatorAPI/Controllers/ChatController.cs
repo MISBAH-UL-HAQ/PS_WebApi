@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Azure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using PatientSimulatorAPI.DTOs;
 using PatientSimulatorAPI.Interfaces;
+using System.Security.Cryptography;
 using static PatientSimulatorAPI.DTOs.ChatDto;
 namespace PatientSimulatorAPI.Controllers
 {
@@ -9,6 +11,34 @@ namespace PatientSimulatorAPI.Controllers
     [ApiController]
     public class ChatController : ControllerBase
     {
+        //        private readonly IChatService _chatService;
+
+        //        public ChatController(IChatService chatService)
+        //        {
+        //            _chatService = chatService;
+        //        }
+
+        //        /// <summary>
+        //        /// Accepts a chat request from the doctor and returns the patient's reply.
+        //        /// </summary>
+        //        [HttpPost("doctor")]
+        //        public async Task<IActionResult> DoctorChat([FromBody] ChatRequestDto request)
+        //        {
+        //            try
+        //            {
+        //                ChatResponseDto response = await _chatService.ProcessDoctorQuestionAsync(request);
+        //                return Ok(response);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                // In a production app, use structured logging and avoid exposing sensitive exception messages.
+        //                return BadRequest(new { error = ex.Message });
+        //            }
+        //        }
+        //    }
+        //}
+
+
         private readonly IChatService _chatService;
 
         public ChatController(IChatService chatService)
@@ -16,24 +46,25 @@ namespace PatientSimulatorAPI.Controllers
             _chatService = chatService;
         }
 
-        /// <summary>
-        /// Accepts a chat request from the doctor and returns the patient's reply.
-        /// </summary>
         [HttpPost("doctor")]
-        public async Task<IActionResult> DoctorChat([FromBody] ChatRequestDto request)
+        public async Task<ActionResult<ChatResponseDto>> PostDoctorQuestion([FromBody] ChatRequestDto request)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                ChatResponseDto response = await _chatService.ProcessDoctorQuestionAsync(request);
+                var response = await _chatService.ProcessDoctorQuestionAsync(request);
                 return Ok(response);
             }
-            catch (Exception ex)
+            catch (KeyNotFoundException)
             {
-                // In a production app, use structured logging and avoid exposing sensitive exception messages.
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(new { error = "Invalid patient prompt ID." });
+            }
+            catch (RequestFailedException ex)
+            {
+                return StatusCode(502, new { error = "Error calling OpenAI service: " + ex.Message });
             }
         }
     }
 }
-    
-

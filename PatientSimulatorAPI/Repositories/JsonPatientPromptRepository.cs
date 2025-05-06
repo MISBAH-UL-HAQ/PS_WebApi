@@ -1,25 +1,18 @@
-﻿
-using System;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Hosting;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
 using PatientSimulatorAPI.Models;
-using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using PatientSimulatorAPI.Interfaces;
+
 namespace PatientSimulatorAPI.Repositories
 {
-
-    /// <summary>
-    /// Loads PatientPrompts.json from the content root and provides lookup methods.
-    /// </summary>
-    public class PatientPromptRepository : IPatientPromptRepository
+    public class JsonPatientPromptRepository : IPatientPromptRepository
     {
         private readonly string _filePath;
 
-        public PatientPromptRepository(IWebHostEnvironment env)
+        public JsonPatientPromptRepository(IWebHostEnvironment env)
         {
             _filePath = Path.Combine(env.ContentRootPath, "PatientPrompts.json");
         }
@@ -31,22 +24,23 @@ namespace PatientSimulatorAPI.Repositories
 
             var json = await File.ReadAllTextAsync(_filePath);
             var collection = JsonSerializer.Deserialize<PatientPromptCollection>(json);
-
-            if (collection?.PatientPrompts == null)
-                throw new InvalidOperationException("Failed to parse PatientPrompts.json or no prompts available.");
-
-            return collection.PatientPrompts;
+            return collection?.PatientPrompts
+                   ?? throw new InvalidOperationException("Loaded JSON but no prompts found.");
         }
 
         public async Task<PatientPrompt?> GetByIdAsync(int id)
         {
-            var all = await GetAllAsync();
-            return all.FirstOrDefault(p => p.Id == id);
+            var prompts = await GetAllAsync();
+            return prompts.FirstOrDefault(p => p.Id == id);
         }
 
         public async Task<PatientPrompt?> GetPatientPromptByIdAsync(int selectedPromptId)
         {
+            // Alias to GetByIdAsync
             return await GetByIdAsync(selectedPromptId);
         }
     }
 }
+
+
+
