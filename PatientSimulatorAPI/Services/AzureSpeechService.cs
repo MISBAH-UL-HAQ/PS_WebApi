@@ -6,76 +6,6 @@ using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
 using PatientSimulatorAPI.Interfaces;
 using PatientSimulatorAPI.Models;
-//namespace PatientSimulatorAPI.Services
-//{
-//    public class AzureSpeechService : ISpeechService
-//    {
-
-//        private readonly SpeechConfig _config;
-
-//        public AzureSpeechService(IOptions<AzureSettings> options)
-//        {
-//            var settings = options.Value;
-//            _config = SpeechConfig.FromSubscription(settings.AzureSpeech.ApiKey, settings.AzureSpeech.Region);
-//        }
-
-//        public async Task<string> SpeechToTextAsync(Stream audioStream)
-//        {
-//            // Wrap the incoming stream in a pull stream using our helper.
-//            var pullStream = AudioInputStream.CreatePullStream(new BinaryAudioStreamReader(audioStream));
-//            using var audioConfig = AudioConfig.FromStreamInput(pullStream);
-//            using var recognizer = new SpeechRecognizer(_config, audioConfig);
-//            var result = await recognizer.RecognizeOnceAsync();
-
-//            if (result.Reason == ResultReason.RecognizedSpeech)
-//                return result.Text;
-//            return string.Empty;
-//        }
-
-//        //public async Task<SpeechResult> TextToSpeechAsync(string text)
-//        //{
-//        //    using var audioConfig = AudioConfig.FromDefaultSpeakerOutput();
-//        //    using var synthesizer = new SpeechSynthesizer(_config, audioConfig);
-//        //    var result = await synthesizer.SpeakTextAsync(text);
-
-//        //    if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-//        //    {
-//        //        using var audioDataStream = AudioDataStream.FromResult(result);
-//        //        using var ms = new MemoryStream();
-//        //        // Use the synchronous method, as SaveToWaveStreamAsync is not available.
-//        //        audioDataStream.SaveToWaveStream(ms);
-//        //        byte[] audioData = ms.ToArray();
-//        //        return new SpeechResult { Text = text, AudioData = audioData };
-//        //    }
-
-//        //    return new SpeechResult { Text = text, AudioData = Array.Empty<byte>() };
-//        //}
-
-
-//        public async Task<SpeechResult> TextToSpeechAsync(string text)
-//        {
-//            using var audioConfig = AudioConfig.FromDefaultSpeakerOutput();
-//            using var synthesizer = new SpeechSynthesizer(_config, audioConfig);
-//            var result = await synthesizer.SpeakTextAsync(text);
-
-//            if (result.Reason == ResultReason.SynthesizingAudioCompleted)
-//            {
-//                return new SpeechResult
-//                {
-//                    Text = text,
-//                    AudioData = result.AudioData
-//                };
-//            }
-
-//            return new SpeechResult
-//            {
-//                Text = text,
-//                AudioData = Array.Empty<byte>()
-//            };
-//        }
-//    }
-//}
-
 namespace PatientSimulatorAPI.Services
 {
 
@@ -93,32 +23,45 @@ namespace PatientSimulatorAPI.Services
 
             _speechConfig = SpeechConfig.FromSubscription(key, region);
         }
+       public async Task<string> RecognizeAsync(Stream audioStream)
+{
+    var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.wav");
 
-        public async Task<string> RecognizeAsync(Stream audioStream)
+    try
+    {
+        // 1. Save the incoming stream to a temp file
+        await using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            var pushStream = AudioInputStream.CreatePushStream();
-            using var binaryReader = new BinaryReader(audioStream);
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = binaryReader.Read(buffer, 0, buffer.Length)) > 0)
-            {
-                if (bytesRead > 0)
-                {
-                    var chunk = new byte[bytesRead];
-                    Array.Copy(buffer, chunk, bytesRead);
-                    pushStream.Write(chunk);
-                }
-            }
-            pushStream.Close();
-
-            using var audioConfig = AudioConfig.FromStreamInput(pushStream);
-            using var recognizer = new SpeechRecognizer(_speechConfig, audioConfig);
-            var result = await recognizer.RecognizeOnceAsync();
-            if (result.Reason == ResultReason.RecognizedSpeech)
-                return result.Text;
-            else
-                throw new InvalidOperationException($"Speech recognition failed: {result.Reason}");
+            await audioStream.CopyToAsync(fileStream);
         }
+
+        // 2. Now that writing is done, we can read from it
+        var audioConfig = AudioConfig.FromWavFileInput(tempFilePath);
+        var recognizer = new SpeechRecognizer(_speechConfig, audioConfig);
+
+        var result = await recognizer.RecognizeOnceAsync();
+
+        if (result.Reason == ResultReason.RecognizedSpeech)
+            return result.Text;
+
+        throw new InvalidOperationException($"STT failed: {result.Reason}");
+    }
+    finally
+    {
+        // Deleting only after recognition completes to avoid file-in-use errors
+        if (File.Exists(tempFilePath))
+        {
+            try
+            {
+                File.Delete(tempFilePath);
+            }
+            catch
+            {
+                // Optional: log deletion failure instead of crashing
+            }
+        }
+    }
+}
 
         public async Task<byte[]> SynthesizeAsync(string text)
         {
@@ -126,8 +69,7 @@ namespace PatientSimulatorAPI.Services
             var result = await synthesizer.SpeakTextAsync(text);
             if (result.Reason == ResultReason.SynthesizingAudioCompleted)
                 return result.AudioData;
-            else
-                throw new InvalidOperationException($"TTS synthesis failed: {result.Reason}");
+            throw new InvalidOperationException($"TTS failed: {result.Reason}");
         }
     }
 }

@@ -39,11 +39,12 @@ builder.Services.Configure<AzureSettings>(builder.Configuration.GetSection("Azur
 
 // Register our speech service.
 
-builder.Services.AddSingleton<IPatientPromptRepository, JsonPatientPromptRepository>();
+//builder.Services.AddSingleton<IPatientPromptRepository, JsonPatientPromptRepository>();
 builder.Services.AddSingleton<IOpenAIService, AzureOpenAIService>();
 builder.Services.AddSingleton<ISpeechService, AzureSpeechService>();
 
 // Register our custom services and repository interfaces
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IPatientPromptRepository, PatientSimulatorAPI.Repositories.PatientPromptRepository>();
 builder.Services.AddSingleton<PatientSimulatorAPI.Interfaces.IChatService, PatientSimulatorAPI.Services.ChatService>();
 

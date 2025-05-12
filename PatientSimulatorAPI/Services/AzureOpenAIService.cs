@@ -22,9 +22,17 @@ namespace PatientSimulatorAPI.Services
                           .GetChatClient(config["AzureOpenAI:Deployment"]);
         }
 
-        public async Task<ChatCompletion> GetPatientResponseAsync(IEnumerable<ChatMessage> history, ChatCompletionOptions options)
+        public async Task<string> GetPatientResponseAsync(IEnumerable<ChatMessage> history, ChatCompletionOptions options)
         {
-            return await _chatClient.CompleteChatAsync(history, options);
+
+            var result = await _chatClient.CompleteChatAsync(history, options);
+
+            if (result.Value.Content.Count > 0)
+            {
+                return result.Value.Content[0].Text.Trim();
+            }
+
+            throw new Exception("No response content received from OpenAI.");
         }
     }
 }

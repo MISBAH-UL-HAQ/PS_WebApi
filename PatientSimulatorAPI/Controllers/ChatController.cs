@@ -11,34 +11,6 @@ namespace PatientSimulatorAPI.Controllers
     [ApiController]
     public class ChatController : ControllerBase
     {
-        //        private readonly IChatService _chatService;
-
-        //        public ChatController(IChatService chatService)
-        //        {
-        //            _chatService = chatService;
-        //        }
-
-        //        /// <summary>
-        //        /// Accepts a chat request from the doctor and returns the patient's reply.
-        //        /// </summary>
-        //        [HttpPost("doctor")]
-        //        public async Task<IActionResult> DoctorChat([FromBody] ChatRequestDto request)
-        //        {
-        //            try
-        //            {
-        //                ChatResponseDto response = await _chatService.ProcessDoctorQuestionAsync(request);
-        //                return Ok(response);
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                // In a production app, use structured logging and avoid exposing sensitive exception messages.
-        //                return BadRequest(new { error = ex.Message });
-        //            }
-        //        }
-        //    }
-        //}
-
-
         private readonly IChatService _chatService;
 
         public ChatController(IChatService chatService)
@@ -47,23 +19,24 @@ namespace PatientSimulatorAPI.Controllers
         }
 
         [HttpPost("doctor")]
-        public async Task<ActionResult<ChatResponseDto>> PostDoctorQuestion([FromBody] ChatRequestDto request)
+        public async Task<ActionResult<ChatResponseDto>> PostDoctorMessage([FromBody] ChatRequestDto request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             try
             {
                 var response = await _chatService.ProcessDoctorQuestionAsync(request);
                 return Ok(response);
             }
-            catch (KeyNotFoundException)
+            catch (ArgumentException ex)
             {
-                return BadRequest(new { error = "Invalid patient prompt ID." });
+                return BadRequest(new { error = ex.Message });
             }
-            catch (RequestFailedException ex)
+            catch (InvalidOperationException ex)
             {
-                return StatusCode(502, new { error = "Error calling OpenAI service: " + ex.Message });
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "An unexpected error occurred.", details = ex.Message });
             }
         }
     }
